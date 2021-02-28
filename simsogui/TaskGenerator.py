@@ -27,7 +27,7 @@ class _DoubleSlider(QSlider):
 
 
 class IntervalSpinner(QWidget):
-    def __init__(self, parent, min_=1, max_=1000, step=1, round_option=True):
+    def __init__(self, parent, min_=1, max_=100, step=1, round_option=True):
         QWidget.__init__(self, parent)
         layout = QVBoxLayout(self)
         hlayout = QHBoxLayout()

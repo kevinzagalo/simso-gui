@@ -68,10 +68,10 @@ class JobsList(QCopyTableWidget):
 
 class ComputationTimeTable(QCopyTableWidget):
     def __init__(self, result, parent=None):
-        QTableWidget.__init__(self, len(result.model.task_list), 6, parent)
+        QTableWidget.__init__(self, len(result.model.task_list), 7, parent)
         self.result = result
         self.setHorizontalHeaderLabels(['Task', 'min', 'avg', 'max',
-                                        'std dev', 'occupancy'])
+                                        'std dev', 'occupancy', 'miss count'])
 
         self.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.verticalHeader().hide()
@@ -85,7 +85,7 @@ class ComputationTimeTable(QCopyTableWidget):
                                 job.computation_time and job.end_date
                                 and not job.aborted]
             if len(computationTimes) == 0:
-                for i in range(6):
+                for i in range(7):
                     self.setItem(curRow, i, QTableWidgetItem(""))
                 continue
             cycles_per_ms = float(result.model.cycles_per_ms)
@@ -97,6 +97,7 @@ class ComputationTimeTable(QCopyTableWidget):
                 [job.computation_time for job in jobs
                  if job.computation_time],
                 0.0) / result.observation_window_duration
+            miss_count = int(task.miss_count)
 
             self.setItem(curRow, 0, QTableWidgetItem(task.name))
             self.setItem(curRow, 1, QTableWidgetItem("%.3f" % computationMin))
@@ -106,6 +107,8 @@ class ComputationTimeTable(QCopyTableWidget):
                          QTableWidgetItem("%.3f" % computationStdDev))
             self.setItem(curRow, 5,
                          QTableWidgetItem("%.3f" % computationOccupancy))
+            self.setItem(curRow, 6,
+                         QTableWidgetItem("%.3f" % miss_count))
         self.resizeColumnsToContents()
 
 

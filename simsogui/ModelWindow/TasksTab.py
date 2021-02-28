@@ -14,6 +14,9 @@ from .CustomFieldsEditor import CustomFieldsEditor
 from simso.core import Task
 from simso.generator.task_generator import gen_arrivals
 
+from numpy import cumsum, random
+
+
 convert_function = {
     'int': int,
     'float': float,
@@ -71,8 +74,15 @@ class TasksTab(Tab):
             for ci, pi in generator.taskset:
                 i += 1
                 if i <= periodic_tasks:
+                    m = random.randint(1, 3)
+                    p = random.randint(1, 10, size=m)
+                    p_et = p / sum(p)
+                    p_et[-1] = 1 - sum(p_et[:-1])
                     task = self.configuration.add_task(
-                        "Task " + str(i), i, period=pi, wcet=ci, deadline=pi)
+                        "Task " + str(i), i, period=pi, wcet=ci,
+                        deadline=pi, acet=cumsum([ci / (m+1)] * m),
+                        p_et=p_et,
+                        et_stddev=[1] * m)
                 else:
                     task = self.configuration.add_task(
                         "Task " + str(i), i, period=pi, wcet=ci, deadline=pi,
@@ -108,7 +118,7 @@ class TasksTable(QTableWidget):
                         "List of Act. dates (ms)", "Deadline (ms)",
                         "WCET (ms)", "ACET (ms)", "ET Std Dev (ms)",
                         "Base CPI", "Instructions", "MIX",
-                        "Stack file", "Preemption cost", "Followed by"]
+                        "Stack file", "Preemption cost", "Followed by", "pET"]
 
         self._dict_header = {
             'id': 0,
@@ -127,7 +137,8 @@ class TasksTable(QTableWidget):
             'mix': 13,
             'sdp': 14,
             'preemption_cost': 15,
-            'followed': 16
+            'followed': 16,
+            'p_et': 17
         }
 
         self.refresh_table()
@@ -144,6 +155,8 @@ class TasksTable(QTableWidget):
         self.horizontalHeader().hideSection(self._dict_header['sdp'])
         self.horizontalHeader().hideSection(self._dict_header['acet'])
         self.horizontalHeader().hideSection(self._dict_header['et_stddev'])
+        self.horizontalHeader().hideSection(self._dict_header['p_et'])
+
         self.horizontalHeader().hideSection(
             self._dict_header['preemption_cost'])
 
@@ -158,6 +171,7 @@ class TasksTable(QTableWidget):
         elif etm == 'acet':
             self.horizontalHeader().showSection(self._dict_header['acet'])
             self.horizontalHeader().showSection(self._dict_header['et_stddev'])
+            self.horizontalHeader().showSection(self._dict_header['p_et'])
 
         self.resizeColumnsToContents()
 
@@ -207,7 +221,7 @@ class TasksTable(QTableWidget):
 
         for i in ['activation_date', 'period',
                   'deadline', 'wcet', 'base_cpi', 'n_instr', 'mix', 'acet',
-                  'et_stddev', 'preemption_cost']:
+                  'et_stddev', 'preemption_cost', 'p_et']:
             self.setItem(row, self._dict_header[i],
                          QTableWidgetItem(str(task.__dict__[i])))
             self.item(row, self._dict_header[i]) \
@@ -315,9 +329,9 @@ class TasksTable(QTableWidget):
         elif col == self._dict_header['wcet']:
             old_value = str(task.wcet)
         elif col == self._dict_header['acet']:
-            old_value = str(task.acet)
+            old_value = str(task.acet)[1:-1]
         elif col == self._dict_header['et_stddev']:
-            old_value = str(task.et_stddev)
+            old_value = str(task.et_stddev)[1:-1]
         elif col == self._dict_header['base_cpi']:
             old_value = str(task.base_cpi)
         elif col == self._dict_header['n_instr']:
@@ -326,6 +340,8 @@ class TasksTable(QTableWidget):
             old_value = str(task.mix)
         elif col == self._dict_header['preemption_cost']:
             old_value = str(task.preemption_cost)
+        elif col == self._dict_header['p_et']:
+            old_value = str(task.p_et)[1:-1]
         elif col >= len(self._header):
             key = self._custom_fields[col - len(self._header)]
             try:
@@ -375,13 +391,18 @@ class TasksTable(QTableWidget):
                 assert wcet > 0
                 task.wcet = wcet
             elif col == self._dict_header['acet']:
-                acet = float(self.item(row, col).text())
-                assert acet > 0
+                acet = list(map(float, str(self.item(row, col).text()).split(',')))
+                assert len(acet) == len(task.p_et) and all(a > 0 for a in acet)
                 task.acet = acet
             elif col == self._dict_header['et_stddev']:
-                et_stddev = float(self.item(row, col).text())
-                assert et_stddev >= 0
+                et_stddev = list(map(float, str(self.item(row, col).text()).split(',')))
+                assert len(et_stddev) == len(task.p_et) and all(s > 0 for s in et_stddev)
                 task.et_stddev = et_stddev
+            elif col == self._dict_header['p_et']:
+                p_et = list(map(float, str(self.item(row, col).text()).split(',')))
+                p_et[-1] = 1 - sum(p_et[:-1])
+                assert all(p > 0 for p in p_et) and sum(p_et) == 1
+                task.p_et = p_et
             elif col == self._dict_header['base_cpi']:
                 base_cpi = float(self.item(row, col).text())
                 assert base_cpi > 0
